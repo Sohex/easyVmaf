@@ -141,6 +141,7 @@ class FFmpegQos:
     def getVmaf(self, log_path= None, model= 'HD', phone = False, subsample = 1,output_fmt='json'):
         main = self.main.lastOutputID
         ref = self.ref.lastOutputID
+        cpu_count = os.cpu_count()
         if output_fmt=='xml':
             log_fmt = "xml"
             if log_path == None:
@@ -160,7 +161,7 @@ class FFmpegQos:
             model_path = config.vmaf_4K
             phone_model = 0
 
-        self.vmafFilter = [f'[{main}][{ref}]libvmaf=log_fmt={log_fmt}:model_path={model_path}:phone_model={phone_model}:n_subsample={subsample}:log_path={log_path}']
+        self.vmafFilter = [f'[{main}][{ref}]libvmaf=log_fmt={log_fmt}:model_path={model_path}:phone_model={phone_model}:n_threads={cpu_count}:n_subsample={subsample}:log_path={log_path}']
 
         self._commit()
         if self.loglevel == "verbose": print(self.cmd, flush=True)
