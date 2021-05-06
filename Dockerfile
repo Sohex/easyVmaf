@@ -15,6 +15,7 @@ RUN \
 	ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
 	apt-get update -yqq && \
 	apt-get install --no-install-recommends\
+                git \
 		ninja-build \
 		python3 \
 		python3-pip \
@@ -58,6 +59,18 @@ RUN \
 	cp  -R ../model/* /usr/local/share/model && \
 	rm -rf /tmp/workdir
 
+# install libdav1d
+WORKDIR  /tmp/workdir
+RUN export PATH="${HOME}/.local/bin:${PATH}" && \
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib64/" && \
+    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:/usr/local/lib64/pkgconfig/" && \
+    git -C dav1d pull 2> /dev/null || git clone --depth 1 https://code.videolan.org/videolan/dav1d.git && \
+    mkdir -p dav1d/build && \
+    cd dav1d/build && \
+    meson setup -Denable_tools=false -Denable_tests=false --default-library=static .. && \
+    ninja -j$(nproc) && \
+    ninja install
+
 # install ffmpeg
 WORKDIR     /tmp/workdir
 RUN \
@@ -66,7 +79,7 @@ RUN \
 	wget https://ffmpeg.org/releases/ffmpeg-${FFMPEG_version}.tar.bz2 && \
 	tar xjf ffmpeg-${FFMPEG_version}.tar.bz2 && \
 	cd ffmpeg-${FFMPEG_version} && \
-	./configure --enable-libvmaf --enable-version3 --disable-shared && \
+	./configure --enable-libdav1d --enable-libvmaf --enable-version3 --disable-shared && \
 	make -j4 && \
 	make install && \
 	rm -rf /tmp/workdir
@@ -76,12 +89,14 @@ ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib64/"
 WORKDIR  /app
 RUN \
 	if [ "$easyVmaf_version" = "master" ] ; \
-	 then wget https://github.com/gdavila/easyVmaf/archive/${easyVmaf_version}.tar.gz && \
+	 then wget https://github.com/sohex/easyVmaf/archive/${easyVmaf_version}.tar.gz && \
 	 tar -xzf  ${easyVmaf_version}.tar.gz ; \
-	 else wget https://github.com/gdavila/easyVmaf/archive/v${easyVmaf_version}.tar.gz && \
+	 else wget https://github.com/sohex/easyVmaf/archive/v${easyVmaf_version}.tar.gz && \
 	 tar -xzf  v${easyVmaf_version}.tar.gz ; \ 
-	fi
+	fi && \
+        mv /app/easyVmaf-${easyVmaf_version} /app/easyVmaf
 
 # app setup
-WORKDIR  /app/easyVmaf-${easyVmaf_version}
-ENTRYPOINT [ "python3", "easyVmaf.py" ]
+VOLUME ["/videos"]
+WORKDIR  /videos
+ENTRYPOINT [ "python3", "/app/easyVmaf/easyVmaf.py" ]
